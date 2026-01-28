@@ -1,25 +1,36 @@
 <template>
-  <div class="login-container">
+  <div class="register-container">
     <!-- 页面内容 -->
     <div class="content">
       <!-- 欢迎标题 -->
-      <h1 class="welcome-title">欢迎登录</h1>
+      <h1 class="welcome-title">用户注册</h1>
 
-      <!-- 登录表单 -->
-      <form
-        v-if="loginMethod === 'password'"
-        class="login-form"
-        @submit.prevent="handleLogin"
-      >
+      <!-- 注册表单 -->
+      <form class="register-form" @submit.prevent="handleRegister">
         <!-- 用户名输入 -->
         <div class="form-group">
-          <label for="phone" class="input-label">用户名</label>
+          <label for="username" class="input-label">用户名</label>
+          <div class="input-wrapper">
+            <input
+              id="username"
+              v-model="formData.username"
+              type="text"
+              placeholder="请输入用户名"
+              class="form-input"
+              required
+            />
+          </div>
+        </div>
+
+        <!-- 手机号码输入 -->
+        <div class="form-group">
+          <label for="phone" class="input-label">手机号码</label>
           <div class="input-wrapper">
             <input
               id="phone"
               v-model="formData.phone"
               type="tel"
-              placeholder="请输入用户名"
+              placeholder="请输入手机号码"
               class="form-input"
               required
             />
@@ -48,54 +59,25 @@
           </div>
         </div>
 
-        <!-- 协议同意 -->
-        <div class="agreement">
-          <label class="agreement-checkbox">
-            <input
-              v-model="formData.agreed"
-              type="checkbox"
-              class="checkbox-input"
-            />
-            <span class="checkmark"></span>
-            点击阅读并同意
-            <a href="#" @click.prevent="showAgreement('business')"
-              >《业务开展协议》</a
-            >
-            和
-            <a href="#" @click.prevent="showAgreement('privacy')"
-              >《隐私协议》</a
-            >
-          </label>
-        </div>
-
-        <!-- 登录按钮 -->
-        <button
-          type="submit"
-          class="login-button"
-          :disabled="!formData.agreed || !formData.phone || !formData.password"
-        >
-          登录
-        </button>
-
-        <!-- 切换登录方式 -->
-        <div class="switch-method" @click="switchToCodeLogin">
-          点击验证码登录
-        </div>
-      </form>
-      <!-- 验证码登录表单 -->
-      <form v-else class="login-form" @submit.prevent="handleCodeLogin">
-        <!-- 手机号码输入 -->
+        <!-- 确认密码输入 -->
         <div class="form-group">
-          <label for="code-phone" class="input-label">手机号码</label>
+          <label for="confirmPassword" class="input-label">确认密码</label>
           <div class="input-wrapper">
             <input
-              id="code-phone"
-              v-model="codeFormData.phone"
-              type="tel"
-              placeholder="请输入手机号码"
+              id="confirmPassword"
+              v-model="formData.confirmPassword"
+              :type="showConfirmPassword ? 'text' : 'password'"
+              placeholder="请再次输入密码"
               class="form-input"
               required
             />
+            <button
+              type="button"
+              class="password-toggle"
+              @click="showConfirmPassword = !showConfirmPassword"
+            >
+              {{ showConfirmPassword ? "隐藏" : "显示" }}
+            </button>
           </div>
         </div>
 
@@ -105,7 +87,7 @@
           <div class="input-wrapper">
             <input
               id="code"
-              v-model="codeFormData.code"
+              v-model="formData.code"
               type="text"
               placeholder="请输入验证码"
               class="form-input"
@@ -127,7 +109,7 @@
         <div class="agreement">
           <label class="agreement-checkbox">
             <input
-              v-model="codeFormData.agreed"
+              v-model="formData.agreed"
               type="checkbox"
               class="checkbox-input"
             />
@@ -143,66 +125,63 @@
           </label>
         </div>
 
-        <!-- 登录按钮 -->
-        <button
-          type="submit"
-          class="login-button"
-          :disabled="
-            !codeFormData.agreed || !codeFormData.phone || !codeFormData.code
-          "
-        >
-          登录
+        <!-- 注册按钮 -->
+        <button type="submit" class="register-button" :disabled="!isFormValid">
+          注册
         </button>
 
-        <!-- 切换登录方式 -->
-        <div class="switch-method" @click="switchToPasswordLogin">
-          返回密码登录
+        <!-- 跳转登录页面 -->
+        <div class="login">
+          <p>已有账号？<router-link to="/login">去登录</router-link></p>
         </div>
       </form>
-
-      <!-- 跳转注册页面 -->
-      <div class="register">
-        <p>没有账号？<router-link to="/register">去注册</router-link></p>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref } from "vue";
+import { reactive, ref, computed } from "vue";
 import { useRouter } from "vue-router";
 
 const router = useRouter();
 
 // 响应式数据
-const loginMethod = ref("password");
 const showPassword = ref(false);
+const showConfirmPassword = ref(false);
 const countdown = ref(0);
 
-// 密码登录表单数据
+// 表单数据
 const formData = reactive({
+  username: "",
   phone: "",
   password: "",
-  agreed: false,
-});
-
-// 验证码登录表单数据
-const codeFormData = reactive({
-  phone: "",
+  confirmPassword: "",
   code: "",
   agreed: false,
 });
 
+// 表单验证
+const isFormValid = computed(() => {
+  return (
+    formData.username &&
+    formData.phone &&
+    formData.password &&
+    formData.confirmPassword &&
+    formData.code &&
+    formData.agreed
+  );
+});
+
 // 发送验证码
 const sendVerificationCode = () => {
-  if (!codeFormData.phone) {
+  if (!formData.phone) {
     alert("请输入手机号码");
     return;
   }
 
   // 验证手机号格式
   const phoneRegex = /^1[3-9]\d{9}$/;
-  if (!phoneRegex.test(codeFormData.phone)) {
+  if (!phoneRegex.test(formData.phone)) {
     alert("请输入正确的手机号码");
     return;
   }
@@ -217,31 +196,28 @@ const sendVerificationCode = () => {
   }, 1000);
 
   // 模拟发送验证码
-  console.log("发送验证码到:", codeFormData.phone);
+  console.log("发送验证码到:", formData.phone);
   setTimeout(() => {
     alert("验证码已发送到您的手机");
   }, 500);
 };
 
-// 切换到验证码登录
-const switchToCodeLogin = () => {
-  loginMethod.value = "code";
-};
-
-// 切换到密码登录
-const switchToPasswordLogin = () => {
-  loginMethod.value = "password";
-};
-
-// 处理密码登录
-const handleLogin = () => {
+// 处理注册
+const handleRegister = () => {
   if (!formData.agreed) {
     alert("请先同意相关协议");
     return;
   }
 
-  if (!formData.phone || !formData.password) {
-    alert("请填写手机号码和密码");
+  // 验证必填项
+  if (
+    !formData.username ||
+    !formData.phone ||
+    !formData.password ||
+    !formData.confirmPassword ||
+    !formData.code
+  ) {
+    alert("请填写所有必填项");
     return;
   }
 
@@ -259,45 +235,24 @@ const handleLogin = () => {
     return;
   }
 
-  console.log("登录信息：", formData);
-
-  // 模拟登录成功
-  setTimeout(() => {
-    alert("登录成功！");
-    router.push("/");
-  }, 500);
-};
-// 处理验证码登录
-const handleCodeLogin = () => {
-  if (!codeFormData.agreed) {
-    alert("请先同意相关协议");
-    return;
-  }
-
-  if (!codeFormData.phone || !codeFormData.code) {
-    alert("请填写手机号码和验证码");
-    return;
-  }
-
-  // 验证手机号格式
-  const phoneRegex = /^1[3-9]\d{9}$/;
-  if (!phoneRegex.test(codeFormData.phone)) {
-    alert("请输入正确的手机号码");
+  // 验证密码一致性
+  if (formData.password !== formData.confirmPassword) {
+    alert("两次输入的密码不一致");
     return;
   }
 
   // 验证验证码格式
-  if (codeFormData.code.length !== 6) {
+  if (formData.code.length !== 6) {
     alert("验证码必须是6位数字");
     return;
   }
 
-  console.log("验证码登录信息：", codeFormData);
+  console.log("注册信息：", formData);
 
-  // 模拟登录成功
+  // 模拟注册成功
   setTimeout(() => {
-    alert("登录成功！");
-    router.push("/");
+    alert("注册成功！请登录");
+    router.push("/login");
   }, 500);
 };
 
@@ -313,7 +268,7 @@ const showAgreement = (type) => {
 
 <style scoped>
 /* 整体容器 */
-.login-container {
+.register-container {
   width: 100%;
   min-height: 100vh;
   background-color: #ffffff;
@@ -322,22 +277,6 @@ const showAgreement = (type) => {
     "Microsoft YaHei", sans-serif;
   display: flex;
   flex-direction: column;
-}
-
-/* 状态栏样式 */
-.status-bar {
-  height: 44px;
-  background-color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-bottom: 0.5px solid #e0e0e0;
-}
-
-.time {
-  font-size: 17px;
-  font-weight: 600;
-  color: #000000;
 }
 
 /* 内容区域 */
@@ -358,8 +297,8 @@ const showAgreement = (type) => {
   line-height: 1.3;
 }
 
-/* 登录表单 */
-.login-form {
+/* 注册表单 */
+.register-form {
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -367,7 +306,7 @@ const showAgreement = (type) => {
 
 /* 表单组 */
 .form-group {
-  margin-bottom: 32px;
+  margin-bottom: 24px;
 }
 
 .input-label {
@@ -387,10 +326,10 @@ const showAgreement = (type) => {
 .form-input {
   width: 100%;
   height: 50px;
-  padding: 12px 0;
-  border: none;
-  border-bottom: 1px solid #e0e0e0;
-  border-radius: 0;
+  padding: 12px 0; /* 左右为0 */
+  border: none; /* 移除所有边框 */
+  border-bottom: 1px solid #e0e0e0; /* 只保留底部边框 */
+  border-radius: 0; /* 移除圆角 */
   font-size: 16px;
   color: #333333;
   background-color: #ffffff;
@@ -403,7 +342,7 @@ const showAgreement = (type) => {
 .form-input:focus {
   outline: none;
   border-color: #1890ff;
-  box-shadow: none;
+  box-shadow: none; /* 移除阴影效果 */
 }
 
 .form-input::placeholder {
@@ -455,7 +394,7 @@ const showAgreement = (type) => {
 
 /* 协议同意 */
 .agreement {
-  margin-bottom: 32px;
+  margin: 20px 0 30px;
 }
 
 .agreement-checkbox {
@@ -511,11 +450,11 @@ const showAgreement = (type) => {
   text-decoration: underline;
 }
 
-/* 登录按钮 */
-.login-button {
+/* 注册按钮 */
+.register-button {
   width: 100%;
   height: 50px;
-  background-color: #1890ff;
+  background-color: #52c41a; /* 绿色，区别于登录按钮 */
   color: #ffffff;
   border: none;
   border-radius: 8px;
@@ -526,48 +465,35 @@ const showAgreement = (type) => {
   margin-bottom: 24px;
 }
 
-.login-button:hover:not(:disabled) {
-  background-color: #40a9ff;
+.register-button:hover:not(:disabled) {
+  background-color: #73d13d;
 }
 
-.login-button:disabled {
+.register-button:disabled {
   background-color: #d9d9d9;
   cursor: not-allowed;
   opacity: 0.7;
 }
 
-/* 切换登录方式 */
-.switch-method {
-  text-align: center;
-  color: #1890ff;
-  font-size: 14px;
-  cursor: pointer;
-  padding: 12px 0;
-}
-
-.switch-method:hover {
-  text-decoration: underline;
-}
-
-/* 跳转注册页面 */
-.register {
+/* 跳转登录页面 */
+.login {
   text-align: center;
   color: #666666;
   font-size: 14px;
 }
 
-.register p {
+.login p {
   margin: 0;
   padding: 12px 0;
 }
 
-.register a {
+.login a {
   color: #1890ff;
   text-decoration: none;
   margin-left: 5px;
 }
 
-.register a:hover {
+.login a:hover {
   text-decoration: underline;
 }
 
@@ -583,7 +509,7 @@ const showAgreement = (type) => {
   }
 
   .form-group {
-    margin-bottom: 28px;
+    margin-bottom: 20px;
   }
 
   .form-input {
@@ -591,7 +517,7 @@ const showAgreement = (type) => {
     font-size: 15px;
   }
 
-  .login-button {
+  .register-button {
     height: 48px;
   }
 }
@@ -610,7 +536,7 @@ const showAgreement = (type) => {
     height: 46px;
   }
 
-  .login-button {
+  .register-button {
     height: 46px;
   }
 }
@@ -627,7 +553,12 @@ const showAgreement = (type) => {
   }
 
   .form-group {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
+  }
+
+  .register-form {
+    overflow-y: auto;
+    max-height: 70vh;
   }
 }
 </style>
