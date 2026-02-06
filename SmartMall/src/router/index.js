@@ -8,6 +8,7 @@ import Scan from "../views/Scan.vue";
 import Target from "../views/Target.vue";
 import Setting from "../views/Setting.vue";
 import MainLayout from "../MainLayout.vue";
+
 // 定义路由规则
 const routes = [
   {
@@ -24,6 +25,11 @@ const routes = [
     path: "/register",
     name: "Register",
     component: () => import("../views/Register.vue"),
+  },
+  {
+    path: "/profile",
+    name: "Profile",
+    component: () => import("../views/Profile.vue"),
   },
   {
     path: "/main", // 首页路径

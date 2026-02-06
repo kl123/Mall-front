@@ -2,7 +2,6 @@
   <div class="login-container">
     <!-- 背景图区域 -->
     <div class="background-section">
-      <img src="" />
       <!-- 打招呼 -->
       <div class="greeting">Hello!</div>
 
