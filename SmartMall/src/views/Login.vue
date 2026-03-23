@@ -186,6 +186,7 @@
 <script setup>
 import { reactive, ref } from "vue";
 import { useRouter } from "vue-router";
+import { Login } from "@/api/user"
 
 const router = useRouter();
 
@@ -253,7 +254,7 @@ const handleCodeLogin = () => {
 };
 
 // 处理账号登录
-const handleLogin = () => {
+const handleLogin = async() => {
   if (!formData.agreed) {
     alert("请先同意相关协议");
     return;
@@ -267,6 +268,7 @@ const handleLogin = () => {
   console.log("登录信息：", formData);
 
   // 模拟登录成功
+  const response=await Login(username,password);
   setTimeout(() => {
     alert("登录成功！");
     router.push("/main/home");
