@@ -10,19 +10,19 @@
 
     <!-- 主要内容区域 -->
     <div class="scan-content-simple">
-      <!-- 过敏源展示卡片 -->
-      <el-card class="allergy-card-simple" shadow="hover">
-        <template #header>
-          <div class="card-header-simple">
-            <div class="card-title-area">
-              <el-icon :size="20" class="card-icon"><Warning /></el-icon>
-              <h3 class="card-title">我的过敏源</h3>
+      <!-- 合并后的主卡片：包含过敏源 + 扫描 + 手动输入 -->
+      <el-card class="main-card-simple" shadow="hover">
+        <!-- 过敏源区块 -->
+        <div class="allergy-section">
+          <div class="section-header">
+            <div class="section-title-area">
+              <el-icon :size="18" class="section-icon"><Warning /></el-icon>
+              <span class="section-title">我的过敏源</span>
             </div>
-            <span class="card-subtitle">扫描商品时会自动检测这些成分</span>
+            <el-button type="primary" plain size="small" @click="editAllergy">
+              <el-icon><Edit /></el-icon> 编辑
+            </el-button>
           </div>
-        </template>
-
-        <div class="allergy-content">
           <div class="allergy-tags">
             <el-tag
               v-for="a in allergens"
@@ -33,31 +33,21 @@
             >
               {{ a }}
             </el-tag>
-            <span v-if="!allergens.length" class="empty-tips"
-              >未设置过敏源</span
-            >
+            <span v-if="!allergens.length" class="empty-tips">未设置过敏源</span>
           </div>
-          <div class="allergy-actions">
-            <el-button type="primary" plain size="small" @click="editAllergy">
-              <el-icon><Edit /></el-icon> 编辑过敏源
-            </el-button>
-          </div>
+          <div class="section-tip">扫描商品时会自动检测这些成分</div>
         </div>
-      </el-card>
 
-      <!-- 扫描卡片 -->
-      <el-card class="scan-card-simple" shadow="hover">
-        <template #header>
-          <div class="card-header-simple">
-            <div class="card-title-area">
-              <el-icon :size="20" class="card-icon"><Camera /></el-icon>
-              <h3 class="card-title">扫描商品</h3>
+        <el-divider />
+
+        <!-- 扫描区块 -->
+        <div class="scan-section">
+          <div class="section-header">
+            <div class="section-title-area">
+              <el-icon :size="18" class="section-icon"><Camera /></el-icon>
+              <span class="section-title">摄像头扫描</span>
             </div>
-            <span class="card-subtitle">将摄像头对准商品条码</span>
           </div>
-        </template>
-
-        <div class="scan-content">
           <div id="qr-reader" class="qr-reader"></div>
           <div class="scan-buttons">
             <el-button
@@ -77,20 +67,17 @@
             </el-button>
           </div>
         </div>
-      </el-card>
 
-      <!-- 手动输入卡片 -->
-      <el-card class="manual-card-simple" shadow="hover">
-        <template #header>
-          <div class="card-header-simple">
-            <div class="card-title-area">
-              <el-icon :size="20" class="card-icon"><Search /></el-icon>
-              <h3 class="card-title">手动输入条码</h3>
+        <el-divider />
+
+        <!-- 手动输入区块 -->
+        <div class="manual-section">
+          <div class="section-header">
+            <div class="section-title-area">
+              <el-icon :size="18" class="section-icon"><Search /></el-icon>
+              <span class="section-title">手动输入条码</span>
             </div>
           </div>
-        </template>
-
-        <div class="manual-area">
           <el-input
             v-model="manualBarcode"
             placeholder="输入商品条码（例如 6901234567892）"
@@ -98,15 +85,13 @@
             @keyup.enter="searchByBarcode"
           >
             <template #append>
-              <el-button @click="searchByBarcode" :icon="Search"
-                >查询</el-button
-              >
+              <el-button @click="searchByBarcode" :icon="Search">查询</el-button>
             </template>
           </el-input>
         </div>
       </el-card>
 
-      <!-- 商品信息卡片 -->
+      <!-- 商品信息卡片（仅在有商品时显示） -->
       <el-card v-if="product" class="product-card-simple" shadow="hover">
         <template #header>
           <div class="card-header-simple">
@@ -132,7 +117,7 @@
           <!-- 过敏提醒 -->
           <el-alert
             v-if="hasAllergen"
-            :title="`⚠️ 包含过敏成分：${allergenList}`"
+            :title="`包含过敏成分：${allergenList}`"
             type="warning"
             show-icon
             :closable="false"
@@ -140,7 +125,7 @@
           />
           <el-alert
             v-else
-            title="✅ 未检测到您的过敏源，相对安全"
+            title="未检测到您的过敏源，相对安全"
             type="success"
             show-icon
             :closable="false"
@@ -159,7 +144,7 @@
                 size="small"
                 class="ingredient-tag"
               >
-                {{ ing }}{{ isAllergen(ing) ? " ⚠️" : "" }}
+                {{ ing }}{{ isAllergen(ing) ? " " : "" }}
               </el-tag>
             </div>
           </div>
@@ -457,23 +442,23 @@ onBeforeUnmount(() => {
 .scan-page-simple {
   min-height: 100vh;
   background-color: #f5f7fa;
-  padding: 16px;
+  padding: 12px;
 }
 
 .page-header {
   display: flex;
   align-items: center;
-  margin-bottom: 20px;
-  padding: 0 8px;
+  margin-bottom: 12px;
+  padding: 0 4px;
 }
 
 .back-btn {
-  margin-right: 12px;
+  margin-right: 8px;
 }
 
 .page-header h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: #303133;
 }
@@ -483,217 +468,217 @@ onBeforeUnmount(() => {
   margin: 0 auto;
 }
 
-/* 卡片通用样式 */
-.allergy-card-simple,
-.scan-card-simple,
-.manual-card-simple,
+/* 卡片统一紧凑 */
+.main-card-simple,
 .product-card-simple,
 .history-card-simple {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   border-radius: 12px;
   border: 1px solid #e4e7ed;
 }
 
-.card-header-simple {
-  padding: 4px 0;
+/* 覆盖 element-plus 卡片默认内边距（正文） */
+:deep(.el-card__body) {
+  padding: 12px !important;
 }
 
-.card-title-area {
+/* 覆盖卡片头部内边距，让标题与卡片边缘距离缩小 */
+:deep(.el-card__header) {
+  padding: 8px 12px !important;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+/* 区块通用样式 */
+.allergy-section,
+.scan-section,
+.manual-section {
+  margin-bottom: 0;
+}
+
+.section-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
 }
 
-.card-icon {
-  margin-right: 10px;
-  color: #409eff;
+.section-title-area {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.card-title {
-  margin: 0;
-  font-size: 18px;
+.section-icon {
+  color: #409eff;
+  font-size: 16px;
+}
+
+.section-title {
+  font-size: 15px;
   font-weight: 600;
   color: #303133;
+  padding-bottom: 3px;
 }
 
-.card-subtitle {
-  font-size: 13px;
+.section-tip {
+  font-size: 11px;
   color: #909399;
-  line-height: 1.4;
+  margin-top: 4px;
 }
 
-/* 过敏源卡片内容 */
-.allergy-content {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
+/* 过敏源标签区域 */
 .allergy-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  flex: 1;
+  gap: 6px;
 }
 
 .allergy-tag {
-  font-size: 14px;
-  padding: 4px 12px;
+  font-size: 13px;
+  padding: 2px 8px;
 }
 
 .empty-tips {
-  font-size: 13px;
+  font-size: 12px;
   color: #909399;
 }
 
-.allergy-actions {
-  flex-shrink: 0;
+/* 分割线紧凑 */
+.el-divider {
+  margin: 12px 0 !important;
 }
 
-/* 扫描卡片 */
-.scan-content {
-  text-align: center;
-}
-
+/* 扫描区域 */
 .qr-reader {
   width: 100%;
   background: #000;
-  border-radius: 12px;
+  border-radius: 10px;
   overflow: hidden;
-  /* min-height: 260px; */
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+  min-height: 240px;
 }
 
 .scan-buttons {
   display: flex;
-  /* flex-direction: column; */
-  gap: 12px;
-  justify-content: center;
+  justify-content: center; 
 }
 
-.scan-buttons .el-button {
+.el-button is-disabled{
+  justify-content: center; 
+}
+/* 手动输入区域 */
+.manual-section .el-input {
   width: 100%;
 }
 
-/* 手动输入卡片 */
-.manual-area {
-  width: 100%;
+/* 商品卡片内部 */
+.card-header-simple {
+  padding: 0;
 }
-
-/* 商品卡片 */
+.card-title-area {
+  display: flex;
+  align-items: center;
+  margin-bottom: 2px;
+}
+.card-icon {
+  margin-right: 6px;
+  font-size: 18px;
+}
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+.card-subtitle {
+  font-size: 12px;
+}
 .product-content {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
-
 .score-section {
-  margin-bottom: 8px;
+  margin-bottom: 0;
 }
-
 .score-label {
-  font-size: 14px;
-  color: #606266;
-  margin-bottom: 8px;
+  font-size: 13px;
+  margin-bottom: 4px;
 }
-
 .warning-alert,
 .safe-alert {
-  margin-bottom: 8px;
+  margin: 0;
+  padding: 6px 12px;
 }
-
 .ingredient-section {
   border-top: 1px solid #f0f2f5;
-  padding-top: 12px;
+  padding-top: 8px;
 }
-
-.section-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: #303133;
-  margin-bottom: 12px;
-}
-
 .ingredient-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;  /* 增加成分标签间距 */
 }
-
 .ingredient-tag {
-  font-size: 12px;
+  font-size: 11px;
+  padding: 0 8px;
+  line-height: 22px;
 }
-
 .price-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   border-top: 1px solid #f0f2f5;
-  padding-top: 12px;
+  padding-top: 8px;
 }
-
 .price-trend {
-  background: #f8f9fa;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 14px;
-  text-align: center;
+  border-radius: 6px;
+  font-size: 13px;
+  padding: 4px 12px;  /* 修正内边距 */
 }
 
-/* 历史卡片 */
+/* 历史记录 */
 .history-list {
   display: flex;
   flex-direction: column;
 }
-
 .history-item {
+  /* padding: 8px 0; */
+  border-bottom: 1px solid #f0f2f5;
+}
+.history-name {
+  font-weight: 500;
+  font-size: 14px;
+}
+.history-time {
+  font-size: 11px;
+}
+.empty-history {
+  padding: 16px 0;
+}
+:deep(.el-empty__description) {
+  margin-top: 8px;
+}
+:deep(.el-empty__image) {
+  width: 60px;
+}
+
+/* 历史卡片头部，让标题和按钮左右分布 */
+.history-card-simple .card-header-simple {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid #f0f2f5;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.history-item:hover {
-  background: #fafbfc;
-}
-
-.history-info {
-  flex: 1;
-}
-
-.history-name {
-  font-weight: 500;
-  margin-bottom: 4px;
-}
-
-.history-time {
-  font-size: 12px;
-  color: #909399;
-}
-
-.empty-history {
-  padding: 20px 0;
 }
 
 /* 响应式 */
-/* @media (max-width: 768px) {
+@media (max-width: 768px) {
+  /* .scan-page-simple {
+    padding: 8px;
+  } */
   .scan-content-simple {
-    padding: 0 8px;
+    padding: 0 4px;
   }
-
-  .allergy-content {
+  /* .scan-buttons {
     flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .scan-buttons {
-    flex-direction: column;
-  }
-
-  .scan-buttons .el-button {
-    width: 100%;
-  }
-} */
+  } */
+}
 </style>
