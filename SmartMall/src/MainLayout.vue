@@ -33,8 +33,8 @@ const router = useRouter()
 const tabbarList = [
   { path: '/main/home', name: '首页', icon: 'House' },
   { path: '/main/scan', name: '扫描', icon: 'FullScreen' },
-  { path: '/main/target', name: '目标', icon: 'Operation' },
-  { path: '/main/setting', name: '设置', icon: 'Setting' }
+  { path: '/main/Community', name: '社区', icon: 'Operation' },
+  { path: '/main/User', name: '我的', icon: 'Setting' }
 ]
 
 // 切换导航方法

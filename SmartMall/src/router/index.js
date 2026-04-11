@@ -3,12 +3,15 @@ import { createRouter, createWebHistory } from "vue-router";
 
 // 导入需要路由跳转的组件（先创建两个测试组件，后面会说）
 import MainLayout from "../MainLayout.vue";
-import Home from "../views/Home.vue";
 import Login from "../views/Login.vue";
 import Register from "../views/Register.vue";
+import Home from "../views/Home.vue";
 import Scan from "../views/Scan.vue";
-import Target from "../views/Target.vue";
+import Community from "../views/Community.vue";
 import Setting from "../views/Setting.vue";
+import User from "../views/User.vue";
+// import Target from "../views/Target.vue";
+import ResultDetail from "../views/ResultDetail.vue";
 
 // 定义路由规则
 const routes = [
@@ -29,15 +32,36 @@ const routes = [
     component: () => import("../views/Register.vue"),
   },
   {
-    path: "/profile",
-    name: "Profile",
-    component: () => import("../views/Profile.vue"),
+    path: "/home",
+    name: "Home",
+    component: () => import("../views/Home.vue"),
   },
-    {
+  {
     path: "/scan",
     name: "Scan",
     component: () => import("../views/Scan.vue"),
   },
+  {
+    path: "/community",
+    name: "Community",
+    component: () => import("../views/Community.vue"),
+  },
+  {
+    path: "/user",
+    name: "User",
+    component: () => import("../views/User.vue"),
+  },
+  {
+    path: "/profile",
+    name: "Profile",
+    component: () => import("../views/Profile.vue"),
+  },
+  {
+    path: "/resultdetail",
+    name: "ResultDetail",
+    component: () => import("../views/ResultDetail.vue"),
+  },
+
   {
     path: "/main", // 首页路径
     name: "MainLayout",
@@ -48,20 +72,25 @@ const routes = [
         name: "Home",
         component: Home,
       },
+      {
+        path: "scan", // 扫描路径
+        name: "Scan",
+        component: Scan,
+      },
       // {
-      //   path: "scan", // 扫描路径
-      //   name: "Scan",
-      //   component: Scan,
+      //   path: "target", // 目标路径
+      //   name: "Target",
+      //   component: Target,
       // },
       {
-        path: "target", // 目标路径
-        name: "Target",
-        component: Target,
+        path: "community", // 目标路径
+        name: "Community",
+        component: Community,
       },
       {
-        path: "setting", // 设置路径
-        name: "Setting",
-        component: Setting,
+        path: "user", // 设置路径
+        name: "User",
+        component: User,
       },
     ],
   },
