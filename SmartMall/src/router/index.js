@@ -8,10 +8,10 @@ import Register from "../views/Register.vue";
 import Home from "../views/Home.vue";
 import Scan from "../views/Scan.vue";
 import Community from "../views/Community.vue";
-import Setting from "../views/Setting.vue";
 import User from "../views/User.vue";
-// import Target from "../views/Target.vue";
 import ResultDetail from "../views/ResultDetail.vue";
+import ScanHistory from '../views/ScanHistory.vue'
+// import Setting from "../views/Setting.vue";
 
 // 定义路由规则
 const routes = [
@@ -61,6 +61,11 @@ const routes = [
     name: "ResultDetail",
     component: () => import("../views/ResultDetail.vue"),
   },
+  {
+    path: "/scanhistory",
+    name: "ScanHistory",
+    component: () => import("../views/ScanHistory.vue"),
+  },
 
   {
     path: "/main", // 首页路径
@@ -77,13 +82,8 @@ const routes = [
         name: "Scan",
         component: Scan,
       },
-      // {
-      //   path: "target", // 目标路径
-      //   name: "Target",
-      //   component: Target,
-      // },
       {
-        path: "community", // 目标路径
+        path: "community", // 社区路径
         name: "Community",
         component: Community,
       },

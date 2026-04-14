@@ -72,7 +72,7 @@ const goToProfile = () => {
 
 // 跳转到扫描历史（扫描页自带历史记录）
 const goToHistory = () => {
-  router.push('/scan')
+  router.push('/scanhistory')
   // 可添加额外逻辑，例如滚动到历史记录区域
 }
 
