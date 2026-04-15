@@ -88,47 +88,23 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import { ElMessage } from 'element-plus'
 import {
   ArrowLeft, Edit, ChatDotRound, User, Goods, Right
 } from '@element-plus/icons-vue'
+import { getProducts } from '@/api/product'
+import { createComment, getComments } from '@/api/comments'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
+const { userId, username } = storeToRefs(userStore)
 
-// ---------- 模拟商品数据 ----------
-const productList = ref([
-  { id: 1, name: '每日坚果', barcode: '6901234567892' },
-  { id: 2, name: '全麦面包', barcode: '6971234567890' },
-  { id: 3, name: '虾仁三明治', barcode: '4891234567893' }
-])
-
-// ---------- 模拟评论数据（初始几条） ----------
-const initialComments = [
-  {
-    id: 1,
-    userId: 1,
-    userName: '美食达人',
-    productId: 1,
-    productName: '每日坚果',
-    productBarcode: '6901234567892',
-    content: '这款坚果搭配很合理，每天一包能量满满！',
-    rating: 5,
-    timestamp: Date.now() - 3600000  // 1小时前
-  },
-  {
-    id: 2,
-    userId: 2,
-    userName: '健康生活',
-    productId: 2,
-    productName: '全麦面包',
-    productBarcode: '6971234567890',
-    content: '早餐配上牛奶，完美！',
-    rating: 4,
-    timestamp: Date.now() - 7200000  // 2小时前
-  }
-]
+const productList = ref([])
+const comments = ref([])
 
 // 辅助函数：生成友好时间文本
 const formatTimeText = (timestamp) => {
@@ -139,29 +115,41 @@ const formatTimeText = (timestamp) => {
   return new Date(timestamp).toLocaleDateString()
 }
 
-// 初始化评论列表（附加 timeText 字段）
-const initComments = () => {
-  return initialComments.map(c => ({
+const normalizeComments = (list) => {
+  return list.map(c => ({
     ...c,
-    timeText: formatTimeText(c.timestamp)
+    timeText: formatTimeText(c.timestamp || Date.now())
   }))
 }
 
-const comments = ref(initComments())
-
 // 发表表单
 const postForm = ref({
-  productId: null,
+  productId: '',
   content: '',
   rating: 0
 })
 const submitting = ref(false)
 
-// 获取下一个评论 ID
-let nextId = comments.value.length + 1
+const loadCommunityData = async () => {
+  try {
+    const [products, commentList] = await Promise.all([
+      getProducts(),
+      getComments(),
+    ])
+    productList.value = products.map((p) => ({
+      id: p.id,
+      name: p.name,
+      barcode: p.id,
+    }))
+    comments.value = normalizeComments(commentList).sort(
+      (a, b) => (b.timestamp || 0) - (a.timestamp || 0),
+    )
+  } catch (error) {
+    ElMessage.error(error.message || '加载社区数据失败')
+  }
+}
 
-// 发表评论（纯前端模拟）
-const submitComment = () => {
+const submitComment = async () => {
   if (!postForm.value.productId) {
     ElMessage.warning('请选择商品')
     return
@@ -173,41 +161,48 @@ const submitComment = () => {
 
   submitting.value = true
 
-  // 模拟网络延迟
-  setTimeout(() => {
+  try {
     const selectedProduct = productList.value.find(p => p.id === postForm.value.productId)
-    if (!selectedProduct) return
+    if (!selectedProduct) {
+      ElMessage.warning('商品信息不存在')
+      return
+    }
 
-    const newComment = {
-      id: nextId++,
-      userId: 999,
-      userName: '当前用户',
-      productId: selectedProduct.id,
+    const newComment = await createComment({
+      userId: userId.value || 0,
+      userName: username.value || '当前用户',
+      productId: selectedProduct.barcode,
       productName: selectedProduct.name,
       productBarcode: selectedProduct.barcode,
       content: postForm.value.content.trim(),
       rating: postForm.value.rating,
       timestamp: Date.now(),
-      timeText: '刚刚'
-    }
+    })
 
     // 插入到列表最前面
-    comments.value.unshift(newComment)
+    comments.value.unshift({
+      ...newComment,
+      timeText: '刚刚',
+    })
 
     // 重置表单
-    postForm.value = { productId: null, content: '', rating: 0 }
+    postForm.value = { productId: '', content: '', rating: 0 }
     ElMessage.success('评论成功！')
-
+  } catch (error) {
+    ElMessage.error(error.message || '评论发布失败')
+  } finally {
     submitting.value = false
-  }, 500)
+  }
 }
 
-// 跳转到商品详情页（这里模拟，实际可跳转）
 const goToProduct = (barcode) => {
-  // 如果有详情页路由，取消注释下面代码
-  // router.push({ name: 'ResultDetail', params: { barcode } })
-  ElMessage.info(`查看商品详情（条码：${barcode}）`)
+  router.push({ name: 'ResultDetail', params: { barcode } })
 }
+
+onMounted(() => {
+  userStore.hydrateFromStorage()
+  loadCommunityData()
+})
 </script>
 
 <style scoped>

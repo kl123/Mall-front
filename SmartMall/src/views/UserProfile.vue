@@ -77,9 +77,6 @@
                   @clear="newAllergy = ''"
                   class="custom-input"
                 >
-                  <!-- <template #prefix>
-                    <el-icon><Edit /></el-icon>
-                  </template> -->
                   <template #append>
                     <el-button
                       @click="addCustomAllergy"
@@ -256,13 +253,19 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
+import { storeToRefs } from "pinia";
 import { ElMessage } from "element-plus";
+import { useUserStore } from "@/stores/user";
 
-// 用户数据
+const userStore = useUserStore();
+const { allergies, dietPreferences } = storeToRefs(userStore);
 const userAllergies = ref([]);
 const customAllergies = ref([]);
-const userDietPreferences = ref([]);
+const userDietPreferences = computed({
+  get: () => dietPreferences.value,
+  set: (value) => userStore.setDietPreferences(value),
+});
 const newAllergy = ref("");
 const lastUpdateTime = ref("");
 const saveSuccessVisible = ref(false);
@@ -282,6 +285,7 @@ const commonAllergies = [
   { id: 7, name: "麸质" },
   { id: 8, name: "芒果" },
 ];
+const commonAllergySet = new Set(commonAllergies.map((item) => item.name));
 
 // 饮食习惯选项
 const dietOptions = [
@@ -294,11 +298,12 @@ const dietOptions = [
   { id: 7, name: "无人工色素", desc: "不含人工色素" },
 ];
 
-// 初始化用户数据（模拟从后端获取）
+// 初始化用户数据（从 Pinia 恢复）
 const initUserData = () => {
-  userAllergies.value = [];
-  customAllergies.value = [];
-  userDietPreferences.value = [];
+  userStore.hydrateFromStorage();
+  const allAllergies = Array.isArray(allergies.value) ? allergies.value : [];
+  userAllergies.value = allAllergies.filter((item) => commonAllergySet.has(item));
+  customAllergies.value = allAllergies.filter((item) => !commonAllergySet.has(item));
   lastUpdateTime.value = "";
 };
 
@@ -340,11 +345,11 @@ const saveAllergies = async () => {
   try {
     await new Promise((resolve) => setTimeout(resolve, 800));
     const allAllergies = [...userAllergies.value, ...customAllergies.value];
-    console.log("保存过敏源:", allAllergies);
+    userStore.setAllergies(allAllergies);
     lastUpdateTime.value = new Date().toLocaleString();
     showSaveSuccess();
     ElMessage.success("过敏源设置已保存");
-  } catch (error) {
+  } catch {
     ElMessage.error("保存失败，请重试");
   } finally {
     savingAllergies.value = false;
@@ -355,6 +360,7 @@ const saveAllergies = async () => {
 const resetAllergies = () => {
   userAllergies.value = [];
   customAllergies.value = [];
+  userStore.setAllergies([]);
   ElMessage.info("过敏源设置已恢复默认");
 };
 
@@ -374,11 +380,11 @@ const saveDietPreferences = async () => {
 
   try {
     await new Promise((resolve) => setTimeout(resolve, 800));
-    console.log("保存饮食习惯:", userDietPreferences.value);
+    userStore.setDietPreferences(userDietPreferences.value);
     lastUpdateTime.value = new Date().toLocaleString();
     showSaveSuccess();
     ElMessage.success("饮食习惯设置已保存");
-  } catch (error) {
+  } catch {
     ElMessage.error("保存失败，请重试");
   } finally {
     savingDiet.value = false;
@@ -387,7 +393,7 @@ const saveDietPreferences = async () => {
 
 // 重置饮食习惯为默认值
 const resetDietPreferences = () => {
-  userDietPreferences.value = [];
+  userStore.setDietPreferences([]);
   ElMessage.info("饮食习惯设置已恢复默认");
 };
 

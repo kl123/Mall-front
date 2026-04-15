@@ -43,28 +43,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { ArrowLeft, Delete, Goods, ArrowRight } from '@element-plus/icons-vue'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
-const historyList = ref([])
-
-// 加载扫描历史（从 localStorage）
-const loadHistory = () => {
-  const stored = localStorage.getItem('smart_scan_history')
-  if (stored) {
-    try {
-      historyList.value = JSON.parse(stored)
-    } catch (e) {
-      console.error('解析历史数据失败', e)
-      historyList.value = []
-    }
-  } else {
-    historyList.value = []
-  }
-}
+const userStore = useUserStore()
+const { scanHistory } = storeToRefs(userStore)
+const historyList = computed(() => scanHistory.value)
 
 // 清空所有历史
 const clearAllHistory = async () => {
@@ -74,8 +63,7 @@ const clearAllHistory = async () => {
       cancelButtonText: '取消',
       type: 'warning'
     })
-    localStorage.removeItem('smart_scan_history')
-    historyList.value = []
+    userStore.clearScanHistory()
     ElMessage.success('历史记录已清空')
   } catch {
     // 用户取消
@@ -93,13 +81,8 @@ const goToScan = () => {
 }
 
 onMounted(() => {
-  loadHistory()
-  // 可选：监听 storage 事件，当其他页面修改历史时同步更新
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'smart_scan_history') {
-      loadHistory()
-    }
-  })
+  userStore.hydrateFromStorage()
+  userStore.loadScanHistory()
 })
 </script>
 

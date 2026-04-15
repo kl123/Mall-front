@@ -46,24 +46,21 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessageBox, ElMessage } from 'element-plus'
+import { storeToRefs } from 'pinia'
 import {
   ArrowLeft, UserFilled, Setting, Clock, SwitchButton, ArrowRight
 } from '@element-plus/icons-vue'
+import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
+const userStore = useUserStore()
+const { username: storeUsername, phone: storePhone } = storeToRefs(userStore)
 
-// 用户信息（从 localStorage 读取，与登录/注册保持一致）
-const username = ref('')
-const phone = ref('')
-
-// 加载用户信息
-const loadUserInfo = () => {
-  username.value = localStorage.getItem('username') || '用户'
-  phone.value = localStorage.getItem('phone') || ''
-}
+const username = computed(() => storeUsername.value || '用户')
+const phone = computed(() => storePhone.value || '')
 
 // 跳转到档案设置页
 const goToProfile = () => {
@@ -84,11 +81,7 @@ const logout = async () => {
       cancelButtonText: '取消',
       type: 'warning'
     })
-    // 清除本地存储的用户信息
-    localStorage.removeItem('username')
-    localStorage.removeItem('phone')
-    localStorage.removeItem('user_allergens')  // 可选：清除过敏源
-    localStorage.removeItem('smart_scan_history') // 可选：清除历史（可根据需求决定）
+    userStore.clearUser()
     ElMessage.success('已退出登录')
     router.push('/login')
   } catch {
@@ -97,7 +90,7 @@ const logout = async () => {
 }
 
 onMounted(() => {
-  loadUserInfo()
+  userStore.hydrateFromStorage()
 })
 </script>
 

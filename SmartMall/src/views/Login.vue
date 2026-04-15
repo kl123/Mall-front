@@ -186,9 +186,11 @@
 <script setup>
 import { reactive, ref } from "vue";
 import { useRouter } from "vue-router";
-import { Login } from "@/api/user"
+import { Login } from "../api/user";
+import { useUserStore } from "@/stores/user";
 
 const router = useRouter();
+const userStore = useUserStore();
 
 // 响应式数据
 const loginMethod = ref("code"); // 默认显示快捷登录
@@ -225,8 +227,6 @@ const sendVerificationCode = () => {
     }
   }, 1000);
 
-  // 模拟发送验证码
-  console.log("发送验证码到:", codeFormData.phone);
   setTimeout(() => {
     alert("验证码已发送");
   }, 500);
@@ -244,8 +244,6 @@ const handleCodeLogin = () => {
     return;
   }
 
-  console.log("验证码登录信息：", codeFormData);
-
   // 模拟登录成功
   setTimeout(() => {
     alert("登录成功！");
@@ -254,25 +252,31 @@ const handleCodeLogin = () => {
 };
 
 // 处理账号登录
-const handleLogin = async() => {
+const handleLogin = async () => {
   if (!formData.agreed) {
     alert("请先同意相关协议");
     return;
   }
-
   if (!formData.phone || !formData.password) {
     alert("请填写账号和密码");
     return;
   }
 
-  console.log("登录信息：", formData);
+  try {
+    // 调用 API，注意传入的是 formData.phone 和 formData.password
+    const response = await Login(formData.phone, formData.password);
 
-  // 模拟登录成功
-  const response=await Login(username,password);
-  setTimeout(() => {
+    userStore.setUser({
+      id: response.userId,
+      name: response.username,
+      phoneNumber: formData.phone,
+    });
+
     alert("登录成功！");
     router.push("/main/home");
-  }, 500);
+  } catch (error) {
+    alert(error.message || "登录失败，请检查账号密码");
+  }
 };
 
 // 显示协议内容

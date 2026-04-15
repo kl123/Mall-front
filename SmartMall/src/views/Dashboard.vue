@@ -77,54 +77,29 @@
         </div>
       </el-card>
 
-      <!-- 快捷操作区 -->
-      <!-- <el-card class="action-card" shadow="hover">
-        <template #header>
-          <div class="card-header">
-            <el-icon><Operation /></el-icon>
-            <span>快捷操作</span>
-          </div>
-        </template>
-        <div class="action-buttons">
-          <el-button type="primary" plain @click="goToScan">
-            <el-icon><Camera /></el-icon> 去扫描
-          </el-button>
-          <el-button type="success" plain @click="goToProfile">
-            <el-icon><User /></el-icon> 编辑档案
-          </el-button>
-        </div>
-      </el-card> -->
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { storeToRefs } from 'pinia'
 import * as echarts from 'echarts'
-import { ElMessage } from 'element-plus'
 import {
   Camera, Warning, TrendCharts, DataLine, PieChart, ChatDotRound,
-  Check, Operation, User
+  Check
 } from '@element-plus/icons-vue'
+import { useUserStore } from '@/stores/user'
+import { getScanHistory } from '@/api/scanHistory'
 
-const router = useRouter()
+const userStore = useUserStore()
+const { username, userId, allergies } = storeToRefs(userStore)
 
-// 用户信息（后续可从 Pinia store 获取）
-const username = ref('用户')
+const totalScans = ref(0)
+const totalAlerts = ref(0)
+const healthScore = ref(80)
 
-// 统计数据（模拟，后续从 API 获取）
-const totalScans = ref(42)
-const totalAlerts = ref(8)
-const healthScore = ref(76)
-
-// 个性化建议（可根据用户过敏源动态生成）
-const suggestions = ref([
-  '根据您的过敏源，扫描商品时请留意成分表中的“花生”和“虾”',
-  '您最近扫描的“每日坚果”含有过敏成分，建议更换其他品牌',
-  '您的健康评分处于中等水平，可尝试选择更多低糖、低脂商品',
-  '定期查看扫描历史，了解您的消费偏好'
-])
+const suggestions = ref([])
 
 // 图表实例
 let trendChart = null
@@ -132,19 +107,12 @@ let allergyChart = null
 const trendChartRef = ref(null)
 const allergyChartRef = ref(null)
 
-// 模拟扫描趋势数据（近7天）
-const trendData = {
-  dates: ['04-01', '04-02', '04-03', '04-04', '04-05', '04-06', '今日'],
-  counts: [5, 7, 3, 8, 6, 9, 4]
-}
+const trendData = ref({
+  dates: [],
+  counts: []
+})
 
-// 模拟过敏警报分布（按成分）
-const allergyDistribution = [
-  { name: '花生', value: 4, color: '#F56C6C' },
-  { name: '虾', value: 2, color: '#E6A23C' },
-  { name: '牛奶', value: 1, color: '#67C23A' },
-  { name: '坚果', value: 1, color: '#909399' }
-]
+const allergyDistribution = ref([])
 
 // 初始化趋势图
 const initTrendChart = () => {
@@ -153,10 +121,10 @@ const initTrendChart = () => {
   trendChart.setOption({
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     grid: { top: 20, left: 35, right: 10, bottom: 10, containLabel: true },
-    xAxis: { type: 'category', data: trendData.dates, axisLabel: { rotate: 30 } },
+    xAxis: { type: 'category', data: trendData.value.dates, axisLabel: { rotate: 30 } },
     yAxis: { type: 'value', name: '扫描次数' },
     series: [{
-      data: trendData.counts,
+      data: trendData.value.counts,
       type: 'line',
       smooth: true,
       lineStyle: { color: '#409EFF', width: 3 },
@@ -179,7 +147,11 @@ const initAllergyChart = () => {
       type: 'pie',
       radius: '55%',
       center: ['50%', '55%'],
-      data: allergyDistribution.map(item => ({ name: item.name, value: item.value, itemStyle: { color: item.color } })),
+      data: allergyDistribution.value.map(item => ({
+        name: item.name,
+        value: item.value,
+        itemStyle: { color: item.color }
+      })),
       label: { show: true, formatter: '{b}: {d}%', fontSize: 11 },
       emphasis: { scale: true }
     }]
@@ -192,23 +164,96 @@ const handleResize = () => {
   allergyChart?.resize()
 }
 
-// 跳转
-const goToScan = () => router.push('/scan')
-const goToProfile = () => router.push('/profile')
+const computeTrendData = (records) => {
+  const now = new Date()
+  const dateList = []
+  for (let i = 6; i >= 0; i -= 1) {
+    const date = new Date(now)
+    date.setDate(now.getDate() - i)
+    const label = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(
+      date.getDate(),
+    ).padStart(2, '0')}`
+    dateList.push(label)
+  }
+  const countMap = new Map(dateList.map((item) => [item, 0]))
+  records.forEach((item) => {
+    const scanDate = new Date(item.scannedAt || item.time || Date.now())
+    const label = `${String(scanDate.getMonth() + 1).padStart(2, '0')}-${String(
+      scanDate.getDate(),
+    ).padStart(2, '0')}`
+    if (countMap.has(label)) {
+      countMap.set(label, countMap.get(label) + 1)
+    }
+  })
 
-// 加载真实数据（后续替换）
+  trendData.value = {
+    dates: dateList,
+    counts: dateList.map((item) => countMap.get(item)),
+  }
+}
+
+const computeAllergyDistribution = (records) => {
+  const allergenCounter = {}
+  records.forEach((record) => {
+    if (!record.hasAllergen) return
+    const list = Array.isArray(record.matchedAllergens) ? record.matchedAllergens : []
+    list.forEach((allergen) => {
+      allergenCounter[allergen] = (allergenCounter[allergen] || 0) + 1
+    })
+  })
+  const colorPool = ['#F56C6C', '#E6A23C', '#67C23A', '#909399', '#409EFF']
+  allergyDistribution.value = Object.entries(allergenCounter).map(([name, value], idx) => ({
+    name,
+    value,
+    color: colorPool[idx % colorPool.length],
+  }))
+}
+
+const computeSuggestions = (records) => {
+  const userAllergies = allergies.value || []
+  const hasWarnings = records.some((item) => item.hasAllergen)
+  const safeRate = totalScans.value
+    ? Math.round(((totalScans.value - totalAlerts.value) / totalScans.value) * 100)
+    : 100
+  suggestions.value = [
+    userAllergies.length
+      ? `已为您关注过敏源：${userAllergies.join("、")}，扫描时会优先提醒相关风险。`
+      : "建议先在档案页设置过敏源，系统可提供更准确的安全提醒。",
+    hasWarnings
+      ? "近期存在过敏警报记录，建议优先查看详情页成分标注。"
+      : "近期未出现过敏警报，当前选择较为安全，继续保持。",
+    `最近扫描安全率约为 ${safeRate}% ，建议优先选择匹配度更高的商品。`,
+    "可在社区页查看同类商品评论，结合价格趋势做出更稳妥选择。",
+  ]
+}
+
 const loadDashboardData = async () => {
-  // 这里将来调用 API 获取统计数据、扫描历史等
-  // 例如：从 localStorage 或 json-server 读取
-  // 目前保持模拟数据
-  console.log('仪表盘数据加载（模拟）')
+  if (!userId.value) return
+  const records = await getScanHistory(userId.value)
+  totalScans.value = records.length
+  totalAlerts.value = records.filter((item) => item.hasAllergen).length
+  if (records.length > 0) {
+    const averageScore = Math.round(
+      records.reduce((sum, item) => sum + (item.matchScore || 0), 0) / records.length,
+    )
+    healthScore.value = averageScore
+  } else {
+    healthScore.value = 80
+  }
+  computeTrendData(records)
+  computeAllergyDistribution(records)
+  computeSuggestions(records)
 }
 
 onMounted(() => {
+  userStore.hydrateFromStorage()
   loadDashboardData()
-  initTrendChart()
-  initAllergyChart()
-  window.addEventListener('resize', handleResize)
+    .catch(() => {})
+    .finally(() => {
+      initTrendChart()
+      initAllergyChart()
+      window.addEventListener('resize', handleResize)
+    })
 })
 
 onBeforeUnmount(() => {

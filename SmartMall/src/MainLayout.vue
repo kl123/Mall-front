@@ -32,8 +32,8 @@ const router = useRouter()
 const tabbarList = [
   { path: '/main/home', name: '首页', iconClass: 'ri-home-heart-fill' },
   { path: '/main/scan', name: '扫描', iconClass: 'ri-qr-scan-ai-line' },
-  { path: '/main/Community', name: '社区', iconClass: 'ri-community-fill' },
-  { path: '/main/User', name: '我的', iconClass: 'ri-map-pin-user-fill' },
+  { path: '/main/community', name: '社区', iconClass: 'ri-community-fill' },
+  { path: '/main/user', name: '我的', iconClass: 'ri-map-pin-user-fill' },
 ]
 
 const switchTab = (path) => {

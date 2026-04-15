@@ -33,7 +33,9 @@
             >
               {{ a }}
             </el-tag>
-            <span v-if="!allergens.length" class="empty-tips">未设置过敏源</span>
+            <span v-if="!allergens.length" class="empty-tips"
+              >未设置过敏源</span
+            >
           </div>
           <div class="section-tip">扫描商品时会自动检测这些成分</div>
         </div>
@@ -85,7 +87,9 @@
             @keyup.enter="searchByBarcode"
           >
             <template #append>
-              <el-button @click="searchByBarcode" :icon="Search">查询</el-button>
+              <el-button @click="searchByBarcode" :icon="Search"
+                >查询</el-button
+              >
             </template>
           </el-input>
         </div>
@@ -105,14 +109,7 @@
 
         <div class="product-content">
           <!-- 匹配度评分 -->
-          <div class="score-section">
-            <div class="score-label">匹配度评分</div>
-            <el-progress
-              :percentage="matchScore"
-              :color="scoreColor"
-              :stroke-width="8"
-            />
-          </div>
+          <MatchScoreBar :percentage="matchScore" />
 
           <!-- 过敏提醒 -->
           <el-alert
@@ -152,7 +149,8 @@
           <!-- 价格趋势 -->
           <div class="price-section">
             <div class="section-title">💰 价格趋势</div>
-            <div class="price-trend">{{ priceTrend }}</div>
+            <div v-if="pricePoints.length" ref="priceChartRef" class="price-chart"></div>
+            <div v-else class="price-trend">暂无价格数据</div>
           </div>
         </div>
       </el-card>
@@ -200,242 +198,274 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from "vue";
-import { ElMessage, ElMessageBox } from "element-plus";
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
+import { ElMessage } from 'element-plus'
+import { Html5Qrcode } from 'html5-qrcode'
+import MatchScoreBar from '@/components/MatchScoreBar.vue'
+import * as echarts from 'echarts'
 import {
-  ArrowLeft,
-  Warning,
-  Edit,
-  Camera,
-  VideoCamera,
-  VideoCameraFilled,
-  Search,
-  Goods,
-  Clock,
-  Delete,
-  ArrowRight,
-} from "@element-plus/icons-vue";
-import { Html5Qrcode } from "html5-qrcode";
+  ArrowLeft, Warning, Edit, Camera, VideoCamera,
+  VideoCameraFilled, Search, Goods, Clock, Delete, ArrowRight
+} from '@element-plus/icons-vue'
+import { scanBarcode } from '../api/scan'
+import { createScanHistoryRecord } from '@/api/scanHistory'
+import { useUserStore } from '@/stores/user'
 
-// ---------- 用户过敏源 ----------
-const allergens = ref([])   // 初始为空
+const router = useRouter()
+const userStore = useUserStore()
+const { userId, allergies: allergens, scanHistory: history } = storeToRefs(userStore)
 
-const editAllergy = async () => {
-  const { value } = await ElMessageBox.prompt(
-    "请输入过敏源（例如：花生,虾,牛奶）",
-    "编辑过敏源",
-    {
-      confirmButtonText: "确定",
-      cancelButtonText: "取消",
-      inputValue: allergens.value.join(","),
-      inputValidator: (val) => {
-        if (!val) return "不能为空";
-        return true;
-      },
-    },
-  );
-if (value) {
-  // 支持中文逗号、空格，统一替换为英文逗号
-  let processedValue = value.replace(/，/g, ',').replace(/\s+/g, ',');
-  allergens.value = processedValue
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s);
-  localStorage.setItem("user_allergens", JSON.stringify(allergens.value));
-  ElMessage.success("过敏源已更新");
+const editAllergy = () => {
+  router.push('/profile')
 }
-};
 
-const loadAllergens = () => {
-  const stored = localStorage.getItem("user_allergens");
-  if (stored) {
-    try {
-      allergens.value = JSON.parse(stored);
-    } catch (e) {}
-  }
-};
-
-// ---------- 商品数据（模拟） ----------
+// ---------- 商品数据（模拟商品库，用于未收录时的降级显示） ----------
 const MOCK_PRODUCTS = {
-  6901234567892: {
-    name: "每日坚果",
-    image: "🌰",
-    ingredients: ["杏仁", "核桃", "花生", "蔓越莓"],
+  '6901234567892': {
+    name: '每日坚果',
+    image: '🌰',
+    ingredients: ['杏仁', '核桃', '花生', '蔓越莓'],
     priceHistory: [39.9, 42.9, 39.9, 38.5],
   },
-  6971234567890: {
-    name: "全麦面包",
-    image: "🍞",
-    ingredients: ["全麦粉", "酵母", "食盐"],
+  '6971234567890': {
+    name: '全麦面包',
+    image: '🍞',
+    ingredients: ['全麦粉', '酵母', '食盐'],
     priceHistory: [12.9, 12.9, 13.5, 12.5],
   },
-  4891234567893: {
-    name: "虾仁三明治",
-    image: "🥪",
-    ingredients: ["面包", "虾仁", "蛋黄酱"],
+  '4891234567893': {
+    name: '虾仁三明治',
+    image: '🥪',
+    ingredients: ['面包', '虾仁', '蛋黄酱'],
     priceHistory: [22.9, 23.5, 24.9, 23.9],
   },
-};
+}
 const UNKNOWN = {
-  name: "未收录商品",
-  image: "📦",
-  ingredients: ["暂无成分信息"],
+  name: '未收录商品',
+  image: '📦',
+  ingredients: ['暂无成分信息'],
   priceHistory: [0],
-};
-
-const getProduct = (barcode) => {
-  return MOCK_PRODUCTS[barcode]
-    ? { ...MOCK_PRODUCTS[barcode] }
-    : { ...UNKNOWN };
-};
+}
 
 // ---------- 扫描相关 ----------
-let scanner = null;
-const isScanning = ref(false);
-const manualBarcode = ref("");
-const product = ref(null);
-const currentBarcode = ref("");
+let scanner = null
+let priceChart = null
+const isScanning = ref(false)
+const manualBarcode = ref('')
+const product = ref(null)
+const currentBarcode = ref('')
+const priceChartRef = ref(null)
 
-// 过敏检测
-const hasAllergen = computed(() => {
-  if (!product.value) return false;
-  return product.value.ingredients.some((ing) =>
-    allergens.value.some((a) => ing.includes(a)),
-  );
-});
-const allergenList = computed(() => {
-  if (!product.value) return "";
-  const matched = product.value.ingredients.filter((ing) =>
-    allergens.value.some((a) => ing.includes(a)),
-  );
-  return matched.join("、");
-});
-const isAllergen = (ing) => allergens.value.some((a) => ing.includes(a));
+// 从后端获取商品信息
+const handleBarcode = async (barcode) => {
+  if (currentBarcode.value === barcode) return
+  currentBarcode.value = barcode
 
-// 匹配度评分
-const matchScore = computed(() => {
-  if (!product.value) return 0;
-  let score = 80;
-  if (hasAllergen.value) score -= 40;
-  if (
-    product.value.name.includes("全麦") ||
-    product.value.name.includes("有机")
+  try {
+    ElMessage.info('正在获取商品信息...')
+    const currentUserId = userId.value || 1
+    const result = await scanBarcode(barcode, currentUserId)
+
+    if (!result.found) {
+      // 如果后端未收录，尝试使用本地 Mock
+      const localProduct = MOCK_PRODUCTS[barcode]
+      if (localProduct) {
+        product.value = {
+          ...localProduct,
+          matchedAllergens: localProduct.ingredients.filter(ing =>
+            allergens.value.some(a => ing.includes(a))
+          ),
+          hasAllergen: localProduct.ingredients.some(ing =>
+            allergens.value.some(a => ing.includes(a))
+          ),
+          matchScore: calculateMatchScore(localProduct)
+        }
+      } else {
+        product.value = { ...UNKNOWN, hasAllergen: false, matchScore: 0 }
+        ElMessage.warning('未找到该商品信息')
+      }
+    } else {
+      product.value = result.product
+    }
+
+    userStore.addScanHistoryItem({ barcode, name: product.value.name })
+    try {
+      await createScanHistoryRecord({
+        userId: currentUserId,
+        barcode,
+        name: product.value.name,
+        hasAllergen: Boolean(product.value.hasAllergen),
+        matchedAllergens: product.value.matchedAllergens || [],
+        matchScore: product.value.matchScore || 0,
+        scannedAt: new Date().toISOString(),
+      })
+    } catch {}
+    stopScan()
+  } catch {
+    // 降级到本地 Mock
+    const localProduct = MOCK_PRODUCTS[barcode] || UNKNOWN
+    product.value = {
+      ...localProduct,
+      matchedAllergens: localProduct.ingredients.filter(ing =>
+        allergens.value.some(a => ing.includes(a))
+      ),
+      hasAllergen: localProduct.ingredients.some(ing =>
+        allergens.value.some(a => ing.includes(a))
+      ),
+      matchScore: calculateMatchScore(localProduct)
+    }
+    ElMessage.error('获取商品信息失败，显示本地数据')
+    userStore.addScanHistoryItem({ barcode, name: product.value.name })
+    stopScan()
+  }
+}
+
+// 本地计算匹配度（作为后端不可用时的兜底）
+const calculateMatchScore = (prod) => {
+  if (!prod) return 0
+  let score = 80
+  const hasAllergen = prod.ingredients.some(ing =>
+    allergens.value.some(a => ing.includes(a))
   )
-    score += 5;
-  return Math.min(100, Math.max(0, score));
-});
-
-// 进度条颜色
-const scoreColor = computed(() => {
-  if (matchScore.value >= 80) return "#67C23A";
-  if (matchScore.value >= 60) return "#E6A23C";
-  return "#F56C6C";
-});
-
-// 价格趋势
-const priceTrend = computed(() => {
-  if (!product.value || !product.value.priceHistory.length)
-    return "暂无价格数据";
-  const prices = product.value.priceHistory;
-  const latest = prices[prices.length - 1];
-  const prev = prices[prices.length - 2] || latest;
-  if (latest > prev) return `📈 上涨  ¥${latest.toFixed(1)}`;
-  if (latest < prev) return `📉 下降  ¥${latest.toFixed(1)}`;
-  return `➖ 平稳  ¥${latest.toFixed(1)}`;
-});
-
-// 处理条码
-const handleBarcode = (barcode) => {
-  if (currentBarcode.value === barcode) return;
-  currentBarcode.value = barcode;
-  product.value = getProduct(barcode);
-  addToHistory(barcode, product.value.name);
-  stopScan();
-};
+  if (hasAllergen) score -= 40
+  if (prod.name.includes('全麦') || prod.name.includes('有机')) score += 5
+  return Math.min(100, Math.max(0, score))
+}
 
 // 手动查询
 const searchByBarcode = () => {
   if (!manualBarcode.value.trim()) {
-    ElMessage.warning("请输入条码");
-    return;
+    ElMessage.warning('请输入条码')
+    return
   }
-  handleBarcode(manualBarcode.value.trim());
-  manualBarcode.value = "";
-};
+  handleBarcode(manualBarcode.value.trim())
+  manualBarcode.value = ''
+}
 
-// 扫描历史
-const STORAGE_KEY = "smart_scan_history";
-const history = ref([]);
+// 过敏检测（用于模板显示）
+const hasAllergen = computed(() => {
+  return product.value?.hasAllergen || false
+})
+const allergenList = computed(() => {
+  return product.value?.matchedAllergens?.join('、') || ''
+})
+const isAllergen = (ing) => {
+  return product.value?.matchedAllergens?.includes(ing) || false
+}
 
-const addToHistory = (barcode, name) => {
-  history.value = history.value.filter((item) => item.barcode !== barcode);
-  history.value.unshift({
-    id: Date.now(),
-    barcode,
-    name,
-    time: new Date().toLocaleString(),
-  });
-  if (history.value.length > 10) history.value.pop();
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(history.value));
-};
+// 匹配度评分
+const matchScore = computed(() => {
+  return product.value?.matchScore || 0
+})
 
-const loadHistory = () => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    try {
-      history.value = JSON.parse(stored);
-    } catch (e) {}
+const pricePoints = computed(() => {
+  if (!product.value) return []
+  const prices = product.value.prices || product.value.priceHistory
+  if (!Array.isArray(prices)) return []
+  return prices.map((item, idx) => {
+    if (typeof item === 'number') {
+      return {
+        label: `第${idx + 1}次`,
+        value: item,
+      }
+    }
+    return {
+      label: item.date ? item.date.slice(5) : `第${idx + 1}次`,
+      value: Number(item.price) || 0,
+    }
+  })
+})
+
+const renderPriceChart = () => {
+  if (!priceChartRef.value || !pricePoints.value.length) return
+  if (priceChart) {
+    priceChart.dispose()
   }
-};
+  priceChart = echarts.init(priceChartRef.value)
+  priceChart.setOption({
+    tooltip: { trigger: 'axis' },
+    grid: { top: 18, left: 40, right: 10, bottom: 25, containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: pricePoints.value.map((item) => item.label),
+      axisLabel: { fontSize: 10 },
+    },
+    yAxis: {
+      type: 'value',
+      name: '价格',
+      axisLabel: { formatter: '¥{value}', fontSize: 10 },
+      nameTextStyle: { fontSize: 10 },
+    },
+    series: [
+      {
+        data: pricePoints.value.map((item) => item.value),
+        type: 'line',
+        smooth: true,
+        lineStyle: { color: '#E6A23C', width: 2 },
+        areaStyle: { color: 'rgba(230, 162, 60, 0.15)' },
+        symbol: 'circle',
+        symbolSize: 5,
+      },
+    ],
+  })
+}
+
+watch(pricePoints, () => {
+  nextTick(() => {
+    renderPriceChart()
+  })
+})
 
 const clearHistory = () => {
-  history.value = [];
-  localStorage.removeItem(STORAGE_KEY);
-  ElMessage.success("历史记录已清空");
-};
+  userStore.clearScanHistory()
+  ElMessage.success('历史记录已清空')
+}
 
 const viewHistory = (barcode) => {
-  handleBarcode(barcode);
-};
+  handleBarcode(barcode)
+}
 
-// 摄像头控制
+// ---------- 摄像头控制 ----------
 const startScan = async () => {
-  if (isScanning.value) return;
+  if (isScanning.value) return
   try {
-    scanner = new Html5Qrcode("qr-reader");
+    scanner = new Html5Qrcode('qr-reader')
     await scanner.start(
-      { facingMode: "environment" },
+      { facingMode: 'environment' },
       { fps: 10, qrbox: { width: 250, height: 200 } },
       (decodedText) => {
-        handleBarcode(decodedText);
+        handleBarcode(decodedText)
       },
-      (error) => {},
-    );
-    isScanning.value = true;
-    ElMessage.success("摄像头已启动");
-  } catch (err) {
-    console.error(err);
-    ElMessage.error("无法打开摄像头，请检查权限");
+      (error) => {}
+    )
+    isScanning.value = true
+    ElMessage.success('摄像头已启动')
+  } catch {
+    ElMessage.error('无法打开摄像头，请检查权限')
   }
-};
+}
 
 const stopScan = async () => {
   if (scanner && isScanning.value) {
-    await scanner.stop();
-    isScanning.value = false;
-    ElMessage.info("摄像头已关闭");
+    await scanner.stop()
+    isScanning.value = false
+    ElMessage.info('摄像头已关闭')
   }
-};
+}
 
+// ---------- 生命周期 ----------
 onMounted(() => {
-  loadAllergens();
-  loadHistory();
-  startScan();
-});
+  userStore.hydrateFromStorage()
+  userStore.loadScanHistory()
+  startScan()
+})
 
 onBeforeUnmount(() => {
-  stopScan();
-});
+  stopScan()
+  priceChart?.dispose()
+})
 </script>
 
 <style scoped>
@@ -560,11 +590,11 @@ onBeforeUnmount(() => {
 
 .scan-buttons {
   display: flex;
-  justify-content: center; 
+  justify-content: center;
 }
 
-.el-button is-disabled{
-  justify-content: center; 
+.el-button is-disabled {
+  justify-content: center;
 }
 /* 手动输入区域 */
 .manual-section .el-input {
@@ -597,13 +627,6 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 10px;
 }
-.score-section {
-  margin-bottom: 0;
-}
-.score-label {
-  font-size: 13px;
-  margin-bottom: 4px;
-}
 .warning-alert,
 .safe-alert {
   margin: 0;
@@ -616,7 +639,7 @@ onBeforeUnmount(() => {
 .ingredient-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;  /* 增加成分标签间距 */
+  gap: 10px; /* 增加成分标签间距 */
 }
 .ingredient-tag {
   font-size: 11px;
@@ -624,16 +647,17 @@ onBeforeUnmount(() => {
   line-height: 22px;
 }
 .price-section {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   border-top: 1px solid #f0f2f5;
   padding-top: 8px;
 }
 .price-trend {
-  border-radius: 6px;
   font-size: 13px;
-  padding: 4px 12px;  /* 修正内边距 */
+  color: #909399;
+}
+.price-chart {
+  width: 100%;
+  height: 160px;
+  margin-top: 8px;
 }
 
 /* 历史记录 */
@@ -642,7 +666,6 @@ onBeforeUnmount(() => {
   flex-direction: column;
 }
 .history-item {
-  /* padding: 8px 0; */
   border-bottom: 1px solid #f0f2f5;
 }
 .history-name {
@@ -671,14 +694,8 @@ onBeforeUnmount(() => {
 
 /* 响应式 */
 @media (max-width: 768px) {
-  /* .scan-page-simple {
-    padding: 8px;
-  } */
   .scan-content-simple {
     padding: 0 4px;
   }
-  /* .scan-buttons {
-    flex-direction: column;
-  } */
 }
 </style>

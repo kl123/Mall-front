@@ -205,7 +205,6 @@ const registerForm = reactive({
   code: "",
   password: "",
   confirmPassword: "",
-  inviteCode: "",
   agreed: false,
 });
 
@@ -411,8 +410,6 @@ const sendVerificationCode = () => {
     }
   }, 1000);
 
-  // 模拟发送验证码
-  console.log("发送验证码到:", registerForm.phone);
   // 模拟返回的验证码（实际开发中应通过后端发送）
   const mockCode = "123456";
   setTimeout(() => {
@@ -456,8 +453,6 @@ const handleRegister = () => {
     codeError.value = "验证码错误";
     return;
   }
-
-  console.log("注册信息：", registerForm);
 
   // 模拟注册成功
   setTimeout(() => {
