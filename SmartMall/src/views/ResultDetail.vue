@@ -201,6 +201,10 @@ import * as echarts from "echarts";
 import { getProductByBarcode } from "@/api/product.js";
 import { createComment, getComments } from "@/api/comments.js";
 import { useUserStore } from "@/stores/user";
+import {
+  getScannedProductByBarcode,
+  upsertScannedProduct,
+} from "@/utils/scannedProducts";
 
 const route = useRoute();
 const barcode = route.params.barcode;
@@ -315,11 +319,13 @@ const loadData = async () => {
       getComments(barcode),
     ]);
     product.value = productData;
+    upsertScannedProduct(userId.value || 1, barcode, productData);
     comments.value = normalizeComments(commentData).sort(
       (a, b) => (b.timestamp || 0) - (a.timestamp || 0),
     );
   } catch {
-    product.value = { ...UNKNOWN };
+    const cachedProduct = getScannedProductByBarcode(userId.value || 1, barcode);
+    product.value = cachedProduct ? { ...cachedProduct } : { ...UNKNOWN };
     comments.value = [];
   } finally {
     loading.value = false;

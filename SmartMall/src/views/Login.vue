@@ -244,8 +244,14 @@ const handleCodeLogin = () => {
     return;
   }
 
-  // 模拟登录成功
+  // 快捷登录走本地模拟登录态，确保通过路由鉴权
   setTimeout(() => {
+    const quickUserId = Number(codeFormData.phone.slice(-4)) || Date.now();
+    userStore.setUser({
+      id: quickUserId,
+      name: "快捷用户",
+      phoneNumber: codeFormData.phone,
+    });
     alert("登录成功！");
     router.push("/main/home");
   }, 500);

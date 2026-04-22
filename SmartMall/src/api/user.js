@@ -1,8 +1,8 @@
 import request from "@/utils/request.js";
 
-export function Login(username, password) {
+export function Login(phone, password) {
   return request.post("/login", {
-    username,
+    phone,
     password,
   });
 }

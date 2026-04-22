@@ -212,6 +212,7 @@ import {
 import { scanBarcode } from '../api/scan'
 import { createScanHistoryRecord } from '@/api/scanHistory'
 import { useUserStore } from '@/stores/user'
+import { upsertScannedProduct } from '@/utils/scannedProducts'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -258,6 +259,15 @@ const product = ref(null)
 const currentBarcode = ref('')
 const priceChartRef = ref(null)
 
+const getCurrentUserId = () => userId.value || 1
+
+const persistScannedProduct = (barcode, data) => {
+  upsertScannedProduct(getCurrentUserId(), barcode, {
+    ...data,
+    id: data.id || barcode,
+  })
+}
+
 // 从后端获取商品信息
 const handleBarcode = async (barcode) => {
   if (currentBarcode.value === barcode) return
@@ -265,7 +275,7 @@ const handleBarcode = async (barcode) => {
 
   try {
     ElMessage.info('正在获取商品信息...')
-    const currentUserId = userId.value || 1
+    const currentUserId = getCurrentUserId()
     const result = await scanBarcode(barcode, currentUserId)
 
     if (!result.found) {
@@ -290,7 +300,16 @@ const handleBarcode = async (barcode) => {
       product.value = result.product
     }
 
-    userStore.addScanHistoryItem({ barcode, name: product.value.name })
+    persistScannedProduct(barcode, product.value)
+
+    userStore.addScanHistoryItem({
+      barcode,
+      name: product.value.name,
+      hasAllergen: Boolean(product.value.hasAllergen),
+      matchedAllergens: product.value.matchedAllergens || [],
+      matchScore: product.value.matchScore || 0,
+      scannedAt: new Date().toISOString(),
+    })
     try {
       await createScanHistoryRecord({
         userId: currentUserId,
@@ -308,6 +327,7 @@ const handleBarcode = async (barcode) => {
     const localProduct = MOCK_PRODUCTS[barcode] || UNKNOWN
     product.value = {
       ...localProduct,
+      id: barcode,
       matchedAllergens: localProduct.ingredients.filter(ing =>
         allergens.value.some(a => ing.includes(a))
       ),
@@ -316,8 +336,16 @@ const handleBarcode = async (barcode) => {
       ),
       matchScore: calculateMatchScore(localProduct)
     }
+    persistScannedProduct(barcode, product.value)
     ElMessage.error('获取商品信息失败，显示本地数据')
-    userStore.addScanHistoryItem({ barcode, name: product.value.name })
+    userStore.addScanHistoryItem({
+      barcode,
+      name: product.value.name,
+      hasAllergen: Boolean(product.value.hasAllergen),
+      matchedAllergens: product.value.matchedAllergens || [],
+      matchScore: product.value.matchScore || 0,
+      scannedAt: new Date().toISOString(),
+    })
     stopScan()
   }
 }
@@ -431,9 +459,46 @@ const viewHistory = (barcode) => {
 const startScan = async () => {
   if (isScanning.value) return
   try {
+    if (!window.isSecureContext && location.hostname !== 'localhost') {
+      ElMessage.error('摄像头需要 HTTPS 或 localhost 环境')
+      return
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      ElMessage.error('当前浏览器不支持摄像头访问，请使用手动输入')
+      return
+    }
+
+    await navigator.mediaDevices.getUserMedia({ video: true })
+      .then((stream) => {
+        stream.getTracks().forEach((track) => track.stop())
+      })
+      .catch(() => {
+        throw new Error('PERMISSION_DENIED')
+      })
+
+    if (scanner) {
+      try {
+        await scanner.stop()
+      } catch {}
+      try {
+        await scanner.clear()
+      } catch {}
+      scanner = null
+    }
+
+    const cameras = await Html5Qrcode.getCameras()
+    if (!cameras.length) {
+      ElMessage.error('未检测到摄像头，请使用手动输入')
+      return
+    }
+    const backCamera =
+      cameras.find((cam) => /back|rear|environment|后置/i.test(cam.label || '')) ||
+      cameras[0]
+
     scanner = new Html5Qrcode('qr-reader')
     await scanner.start(
-      { facingMode: 'environment' },
+      { deviceId: { exact: backCamera.id } },
       { fps: 10, qrbox: { width: 250, height: 200 } },
       (decodedText) => {
         handleBarcode(decodedText)
@@ -442,16 +507,28 @@ const startScan = async () => {
     )
     isScanning.value = true
     ElMessage.success('摄像头已启动')
-  } catch {
-    ElMessage.error('无法打开摄像头，请检查权限')
+  } catch (error) {
+    if (String(error?.message || '').includes('PERMISSION_DENIED')) {
+      ElMessage.error('摄像头权限被拒绝，请在浏览器地址栏开启权限后重试')
+      return
+    }
+    ElMessage.error('摄像头启动失败，请使用手动输入条码')
   }
 }
 
 const stopScan = async () => {
-  if (scanner && isScanning.value) {
-    await scanner.stop()
-    isScanning.value = false
-    ElMessage.info('摄像头已关闭')
+  if (scanner) {
+    try {
+      if (isScanning.value) {
+        await scanner.stop()
+      }
+      await scanner.clear()
+    } catch {}
+    scanner = null
+    if (isScanning.value) {
+      isScanning.value = false
+      ElMessage.info('摄像头已关闭')
+    }
   }
 }
 
@@ -459,7 +536,6 @@ const stopScan = async () => {
 onMounted(() => {
   userStore.hydrateFromStorage()
   userStore.loadScanHistory()
-  startScan()
 })
 
 onBeforeUnmount(() => {

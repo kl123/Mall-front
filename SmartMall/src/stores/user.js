@@ -105,7 +105,14 @@ export const useUserStore = defineStore("user", () => {
     persistUserProfile();
   };
 
-  const addScanHistoryItem = ({ barcode, name }) => {
+  const addScanHistoryItem = ({
+    barcode,
+    name,
+    hasAllergen = false,
+    matchedAllergens = [],
+    matchScore = 0,
+    scannedAt = null,
+  }) => {
     if (!scanHistoryKey.value) return;
     scanHistory.value = scanHistory.value.filter((item) => item.barcode !== barcode);
     scanHistory.value.unshift({
@@ -113,6 +120,10 @@ export const useUserStore = defineStore("user", () => {
       barcode,
       name,
       time: new Date().toLocaleString(),
+      scannedAt: scannedAt || new Date().toISOString(),
+      hasAllergen: Boolean(hasAllergen),
+      matchedAllergens: Array.isArray(matchedAllergens) ? matchedAllergens : [],
+      matchScore: Number(matchScore) || 0,
     });
     if (scanHistory.value.length > 10) {
       scanHistory.value = scanHistory.value.slice(0, 10);

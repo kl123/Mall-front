@@ -88,7 +88,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { ElMessage } from 'element-plus'
@@ -97,11 +97,13 @@ import {
 } from '@element-plus/icons-vue'
 import { getProducts } from '@/api/product'
 import { createComment, getComments } from '@/api/comments'
+import { getScanHistory } from '@/api/scanHistory'
 import { useUserStore } from '@/stores/user'
+import { getScannedProductsMap } from '@/utils/scannedProducts'
 
 const router = useRouter()
 const userStore = useUserStore()
-const { userId, username } = storeToRefs(userStore)
+const { userId, username, scanHistory } = storeToRefs(userStore)
 
 const productList = ref([])
 const comments = ref([])
@@ -132,15 +134,37 @@ const submitting = ref(false)
 
 const loadCommunityData = async () => {
   try {
-    const [products, commentList] = await Promise.all([
+    const currentUserId = userId.value || 1
+    const [products, commentList, remoteScanHistory] = await Promise.all([
       getProducts(),
       getComments(),
+      getScanHistory(currentUserId).catch(() => []),
     ])
-    productList.value = products.map((p) => ({
+    const allProducts = products.map((p) => ({
       id: p.id,
       name: p.name,
       barcode: p.id,
     }))
+    const productMap = new Map(allProducts.map((item) => [item.id, item]))
+    const localScanHistory = Array.isArray(scanHistory.value) ? scanHistory.value : []
+    const scannedBarcodes = Array.from(
+      new Set(
+        [...remoteScanHistory, ...localScanHistory]
+          .map((item) => item.barcode || item.productId)
+          .filter(Boolean),
+      ),
+    )
+    const scannedProductCache = getScannedProductsMap(currentUserId)
+    productList.value = scannedBarcodes.map((barcode) => {
+      const hit = productMap.get(barcode)
+      if (hit) return hit
+      const cached = scannedProductCache[barcode]
+      return {
+        id: barcode,
+        name: cached?.name || `商品 ${barcode}`,
+        barcode,
+      }
+    })
     comments.value = normalizeComments(commentList).sort(
       (a, b) => (b.timestamp || 0) - (a.timestamp || 0),
     )
@@ -201,8 +225,13 @@ const goToProduct = (barcode) => {
 
 onMounted(() => {
   userStore.hydrateFromStorage()
+  userStore.loadScanHistory()
   loadCommunityData()
 })
+
+watch(scanHistory, () => {
+  loadCommunityData()
+}, { deep: true })
 </script>
 
 <style scoped>

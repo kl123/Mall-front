@@ -82,7 +82,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import * as echarts from 'echarts'
 import {
@@ -93,7 +93,7 @@ import { useUserStore } from '@/stores/user'
 import { getScanHistory } from '@/api/scanHistory'
 
 const userStore = useUserStore()
-const { username, userId, allergies } = storeToRefs(userStore)
+const { username, userId, allergies, scanHistory } = storeToRefs(userStore)
 
 const totalScans = ref(0)
 const totalAlerts = ref(0)
@@ -229,7 +229,21 @@ const computeSuggestions = (records) => {
 
 const loadDashboardData = async () => {
   if (!userId.value) return
-  const records = await getScanHistory(userId.value)
+  let remoteRecords = []
+  try {
+    remoteRecords = await getScanHistory(userId.value)
+  } catch {
+    remoteRecords = []
+  }
+  const localRecords = Array.isArray(scanHistory.value) ? scanHistory.value : []
+  const mergedMap = new Map()
+  remoteRecords.forEach((item) => mergedMap.set(`${item.barcode}_${item.scannedAt || item.time || item.id}`, item))
+  localRecords.forEach((item) => mergedMap.set(`${item.barcode}_${item.scannedAt || item.time || item.id}`, item))
+  const records = Array.from(mergedMap.values()).sort(
+    (a, b) =>
+      new Date(b.scannedAt || b.time || 0).getTime() -
+      new Date(a.scannedAt || a.time || 0).getTime(),
+  )
   totalScans.value = records.length
   totalAlerts.value = records.filter((item) => item.hasAllergen).length
   if (records.length > 0) {
@@ -243,21 +257,45 @@ const loadDashboardData = async () => {
   computeTrendData(records)
   computeAllergyDistribution(records)
   computeSuggestions(records)
+  if (trendChart) {
+    trendChart.setOption({
+      xAxis: { data: trendData.value.dates },
+      series: [{ data: trendData.value.counts }],
+    })
+  }
+  if (allergyChart) {
+    allergyChart.setOption({
+      series: [{
+        data: allergyDistribution.value.map(item => ({
+          name: item.name,
+          value: item.value,
+          itemStyle: { color: item.color },
+        })),
+      }],
+    })
+  }
 }
 
 onMounted(() => {
   userStore.hydrateFromStorage()
+  userStore.loadScanHistory()
   loadDashboardData()
     .catch(() => {})
     .finally(() => {
       initTrendChart()
       initAllergyChart()
       window.addEventListener('resize', handleResize)
+      window.addEventListener('focus', loadDashboardData)
     })
 })
 
+watch(scanHistory, () => {
+  loadDashboardData().catch(() => {})
+}, { deep: true })
+
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
+  window.removeEventListener('focus', loadDashboardData)
   trendChart?.dispose()
   allergyChart?.dispose()
 })
