@@ -44,7 +44,8 @@ const switchTab = (path) => {
 <style scoped>
 .h5-layout-container {
   width: 100vw;
-  height: 100vh;
+  min-height: 100vh;
+  min-height: 100dvh;
   box-sizing: border-box;
   overflow: hidden;
   display: flex;
@@ -55,7 +56,7 @@ const switchTab = (path) => {
 .content-wrapper {
   flex: 1;
   overflow-y: auto;
-  padding-bottom: 70px;
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
 }
 
 .tabbar {
@@ -69,6 +70,7 @@ const switchTab = (path) => {
   box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
   position: fixed;
   bottom: 0;
+  padding-bottom: env(safe-area-inset-bottom);
   left: 4%;
   z-index: 999;
   border-top: none;
@@ -110,7 +112,7 @@ const switchTab = (path) => {
 
 @media (max-width: 375px) {
   .content-wrapper {
-    padding-bottom: 80px;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
   }
 
   .tabbar {

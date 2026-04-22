@@ -208,8 +208,9 @@ onMounted(() => {
 <style scoped>
 .community-page {
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: #f5f7fa;
-  padding: 12px;
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
 }
 .page-header {
   display: flex;
@@ -254,6 +255,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   width: 100%;
+  gap: 10px;
 }
 .comment-list {
   display: flex;
@@ -270,6 +272,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   margin-bottom: 8px;
 }
 .user-info {
@@ -286,6 +289,7 @@ onMounted(() => {
   font-size: 13px;
   color: #409eff;
   cursor: pointer;
+  flex-shrink: 0;
 }
 .product-name:hover {
   text-decoration: underline;
@@ -307,5 +311,57 @@ onMounted(() => {
 }
 .empty-comment {
   padding: 20px 0;
+}
+
+@media (max-width: 768px) {
+  .community-page {
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+  }
+
+  .page-header {
+    margin-bottom: 12px;
+  }
+
+  .page-header h2 {
+    font-size: 17px;
+  }
+
+  :deep(.el-card__header) {
+    padding: 10px 12px;
+  }
+
+  :deep(.el-card__body) {
+    padding: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .community-page {
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+  }
+
+  .comment-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .product-name {
+    font-size: 12px;
+  }
+
+  .post-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .post-actions .el-button {
+    width: 100%;
+  }
+
+  .comment-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
 }
 </style>

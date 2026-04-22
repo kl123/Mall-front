@@ -5,6 +5,7 @@ import router from './router'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import 'remixicon/fonts/remixicon.css'
+import './assets/mobile.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import { useUserStore } from './stores/user'
 
