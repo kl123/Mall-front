@@ -1,53 +1,104 @@
-// src/router/index.js
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory } from "vue-router";
+import MainLayout from "../MainLayout.vue";
+import { useUserStore } from "@/stores/user";
 
-// 导入需要路由跳转的组件（先创建两个测试组件，后面会说）
-import Home from '../views/Home.vue'
-import Login from '../views/Login.vue'
-import Scan from '../views/Scan.vue'
-import Target from '../views/Target.vue'
-import Setting from '../views/Setting.vue'
-import MainLayout from '../MainLayout.vue'
-// 定义路由规则
 const routes = [
   {
-    path: '/', // 根路径
-    name: 'Login',
-    component: Login
+    path: "/",
+    redirect: "/login",
   },
   {
-    path: '/main', // 首页路径
-    name: 'MainLayout',
+    path: "/login",
+    name: "Login",
+    component: () => import("../views/Login.vue"),
+  },
+  {
+    path: "/register",
+    name: "Register",
+    component: () => import("../views/Register.vue"),
+  },
+  {
+    path: "/home",
+    redirect: "/main/home",
+  },
+  {
+    path: "/scan",
+    redirect: "/main/scan",
+  },
+  {
+    path: "/community",
+    redirect: "/main/community",
+  },
+  {
+    path: "/user",
+    redirect: "/main/user",
+  },
+  {
+    path: "/main",
     component: MainLayout,
+    meta: { requiresAuth: true },
     children: [
       {
-        path: 'home', // 首页路径
-        name: 'Home',
-        component: Home
+        path: "home",
+        name: "Dashboard",
+        component: () => import("../views/Dashboard.vue"),
       },
       {
-        path: 'scan', // 扫描路径
-        name: 'Scan',
-        component: Scan
+        path: "scan",
+        name: "Scan",
+        component: () => import("../views/Scan.vue"),
       },
       {
-        path: 'target', // 目标路径
-        name: 'Target',
-        component: Target
+        path: "community",
+        name: "Community",
+        component: () => import("../views/Community.vue"),
       },
       {
-        path: 'setting', // 设置路径
-        name: 'Setting',
-        component: Setting
-      }
-    ]
-  }
-]
+        path: "user",
+        name: "UserCenter",
+        component: () => import("../views/UserCenter.vue"),
+      },
+    ],
+  },
+  {
+    path: "/profile",
+    name: "UserProfile",
+    component: () => import("../views/UserProfile.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/scan-history",
+    alias: "/scanhistory",
+    name: "ScanHistory",
+    component: () => import("../views/ScanHistory.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/result/:barcode",
+    alias: "/resultdetail/:barcode",
+    name: "ResultDetail",
+    component: () => import("../views/ResultDetail.vue"),
+    meta: { requiresAuth: true },
+  },
+];
 
-// 创建路由实例
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL), // 路由模式（HTML5 History）
-  routes
-})
+  history: createWebHistory(import.meta.env.BASE_URL),
+  routes,
+});
 
-export default router
+router.beforeEach((to) => {
+  const userStore = useUserStore();
+  userStore.hydrateFromStorage();
+  const isLoggedIn = Boolean(userStore.userId);
+
+  if (to.meta.requiresAuth && !isLoggedIn) {
+    return { name: "Login" };
+  }
+  if (isLoggedIn && (to.name === "Login" || to.name === "Register")) {
+    return { name: "Dashboard" };
+  }
+  return true;
+});
+
+export default router;

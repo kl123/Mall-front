@@ -1,19 +1,30 @@
-// src/main.js
 import { createApp } from 'vue'
+import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
-// 关键：导入 ElIcon 组件 + 所有图标
+import 'remixicon/fonts/remixicon.css'
+import './assets/mobile.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
+import { useUserStore } from './stores/user'
 
+// 1. 先创建 app
 const app = createApp(App)
+
+// 2. 创建 pinia 实例
+const pinia = createPinia()
+
+// 3. 挂载插件
+app.use(pinia)
 app.use(router)
 app.use(ElementPlus)
 
-// 全局注册所有 Element Plus 图标（无需逐个注册）
+const userStore = useUserStore(pinia)
+userStore.hydrateFromStorage()
+
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)
 }
-
+// 4. 最后挂载
 app.mount('#app')
